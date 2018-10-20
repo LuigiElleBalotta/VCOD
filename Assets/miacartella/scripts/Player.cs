@@ -32,6 +32,7 @@ public class Player : MonoBehaviour
     GameObject camera;
     bool isTargetting;
     GameObject armacamera;
+    Client c = new Client();
     string query = "";
     float armacamera_p_x, armacamera_p_y, armacamera_p_z, armacamera_o_x, armacamera_o_y, armacamera_o_z, camera_p_x, camera_p_y, camera_p_z, camera_o_x, camera_o_y, camera_o_z; 
     //--------------------------------
@@ -72,7 +73,6 @@ public class Player : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
-
         //Sistema di Rotazione (non ce n'è bisogno per ora)
         if (Input.GetKey(KeyCode.A))
             transform.Rotate(Vector3.up, -1); //-1 sono i gradi di rotazione
@@ -155,7 +155,8 @@ public class Player : MonoBehaviour
             //Resetta la vita
             health = maxHealth;
             wasDead = true;
-            TM.SendMessage("playerText", health + "-" + maxHealth + "-" + " " + "-" + level + "-" + exp + "-" + expToNextLevel);
+            PlayerText pt = new PlayerText(health, maxHealth, 0, level, exp, expToNextLevel);
+            TM.SendMessage("playerText", pt.buildPacket());
         }
 
         if (currentTarget != null)
@@ -174,8 +175,8 @@ public class Player : MonoBehaviour
         if (currentTarget != null && !isAttacking)
         {
             TM.setTargetTrue(true);
-            string targetInfo = currentTarget.getHealth() + "-" + currentTarget.getMaxHealth() + "-" + " " + "-" + currentTarget.getLevel() + "-";
-            TM.SendMessage("targetText", targetInfo);
+            TargetInfo t = new TargetInfo(currentTarget.getHealth(), currentTarget.getMaxHealth(), currentTarget.getLevel(), 0, 0);
+            TM.SendMessage("targetText", t.buildPacket());
         }
         if (currentTarget != null)
         {
@@ -219,8 +220,8 @@ public class Player : MonoBehaviour
         {
             int dam = UnityEngine.Random.Range(10, 25);
             target.SendMessage("applyDamage", dam);
-            string targetInfo = currentTarget.getHealth() + "-" + currentTarget.getMaxHealth() + "-" + dam + "-" + currentTarget.getLevel() + "-";
-            TM.SendMessage("targetText", targetInfo);
+            TargetInfo t = new TargetInfo(currentTarget.getHealth(), currentTarget.getMaxHealth(), currentTarget.getLevel(), 0, 0);
+            TM.SendMessage("targetText", t.buildPacket());
             attackTime = 1.5F;
         }
         else
@@ -236,7 +237,8 @@ public class Player : MonoBehaviour
         }
         damageRec = "<b>" + damage + "</b>";
         attackRec = true;
-        TM.SendMessage("playerText", health + "-" + maxHealth + "-" + damage + "-" + level + "-" + exp + "-" + expToNextLevel);
+        PlayerText pt = new PlayerText(health, maxHealth, damage, level, exp, expToNextLevel);
+        TM.SendMessage("playerText", pt.buildPacket());
         Debug.Log("Damage Received " + damage);
     }
 
@@ -266,7 +268,8 @@ public class Player : MonoBehaviour
             }
 
         }
-        TM.SendMessage("playerText", health + "-" + maxHealth + "-" + "" + "-" + level + "-" + exp + "-" + expToNextLevel);
+        PlayerText pt = new PlayerText(health, maxHealth, 0, level, exp, expToNextLevel);
+        TM.SendMessage("playerText", pt.buildPacket());
 
     }
 
@@ -285,9 +288,10 @@ public class Player : MonoBehaviour
             exp = 0;
             expToNextLevel = Mathf.RoundToInt((level * 150) * 1F);
         }
-        string targetInfo = " - - - -" + experience;
-        TM.SendMessage("targetText", targetInfo);
-        TM.SendMessage("playerText", health + "-" + maxHealth + "-" + "" + "-" + level + "-" + exp + "-" + expToNextLevel);
+        /*string targetInfo = " - - - -" + experience;
+        TM.SendMessage("targetText", targetInfo);*/
+        PlayerText pt = new PlayerText(health, maxHealth, 0, level, exp, expToNextLevel);
+        TM.SendMessage("playerText", pt.buildPacket());
     }
 
     public Infetto getTarget()
@@ -322,23 +326,21 @@ public class Player : MonoBehaviour
     public void load(string s)
     {
         DbManager.setInstance();
-        string myData = DbManager.loadPlayer(s);
-        Debug.Log(myData);
-        if (!myData.Equals(""))
+        JSONObject myData = DbManager.loadPlayer(s);
+        if (myData.Count > 0)
         {
-            char[] del = { '|' };
-            string[] values = myData.Split(del);
-            level = Convert.ToInt32(values[0]);
-            exp = Convert.ToInt32(values[1]);
-            expToNextLevel = Convert.ToInt32(values[2]);
-            health = Convert.ToInt32(values[3]);
-            maxHealth = Convert.ToInt32(values[4]);
-            spawnPos.x = (float)Convert.ToDouble(values[5]);
-            spawnPos.y = (float)Convert.ToDouble(values[6]);
-            spawnPos.z = (float)Convert.ToDouble(values[7]);
+            level = Global.JSONParseInt(myData.GetField("level").n);
+            exp = Global.JSONParseInt(myData.GetField("exp").n);
+            expToNextLevel = Global.JSONParseInt(myData.GetField("expToNextLvl").n);
+            health = Global.JSONParseInt(myData.GetField("health").n);
+            maxHealth = Global.JSONParseInt(myData.GetField("maxhealth").n);
+            spawnPos.x = myData.GetField("position_x").n;
+            spawnPos.y = myData.GetField("position_y").n;
+            spawnPos.z = myData.GetField("position_z").n;
             transform.position = spawnPos;
-            transform.Rotate((float)Convert.ToDouble(values[8]), (float)Convert.ToDouble(values[9]), (float)Convert.ToDouble(values[10]));
-            TM.SendMessage("playerText", health + "-" + maxHealth + "-" + "" + "-" + level + "-" + exp + "-" + expToNextLevel);
+            transform.Rotate(myData.GetField("orientation_x").n, myData.GetField("orientation_y").n, myData.GetField("orientation_z").n);
+            PlayerText pt = new PlayerText(health, maxHealth, 0, level, exp, expToNextLevel);
+            TM.SendMessage("playerText", pt.buildPacket());
         }
     }
     public long UnixTimeNow()
@@ -351,4 +353,5 @@ public class Player : MonoBehaviour
     {
         return this;
     }
+    
 }
